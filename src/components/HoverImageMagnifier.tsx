@@ -1,161 +1,12 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { BoundaryType, useBoundary } from "./useBoundary";
-
-type ContainerLayers =
-  | "container"
-  | "img"
-  | "previewContainer"
-  | "previewImage";
-
-type PlacementType = "right" | "left" | "top" | "bottom";
-
-const getInitialCoordinates = (
-  childrenRect: DOMRect,
-  popoverRect: DOMRect,
-  placement: PlacementType
-) => {
-  switch (placement) {
-    case "top": {
-      return {
-        y: childrenRect.top - popoverRect.height,
-        x: childrenRect.left + childrenRect.width / 2 - popoverRect.width / 2,
-      };
-    }
-    case "bottom":
-      return {
-        y: childrenRect.bottom,
-        x: childrenRect.left + childrenRect.width / 2 - popoverRect.width / 2,
-      };
-    case "left":
-      return {
-        y: childrenRect.top + childrenRect.height / 2 - popoverRect.height / 2,
-        x: childrenRect.left - popoverRect.width,
-      };
-    case "right":
-      return {
-        y: childrenRect.top + childrenRect.height / 2 - popoverRect.height / 2,
-        x: childrenRect.right,
-      };
-    default:
-      return {
-        y: 0,
-        x: 0,
-      };
-  }
-};
-
-const getCoordsFromRect = (x: number, y: number, popoverRect: DOMRect) => ({
-  top: y,
-  bottom: y + popoverRect.height,
-  left: x,
-  right: x + popoverRect.width,
-});
-
-const OFFSET_DISTANCE = 8;
-
-const applyOffset = (
-  x: number,
-  y: number,
-  placement: PlacementType
-): [number, number, PlacementType] => {
-  switch (placement) {
-    case "top":
-      y -= OFFSET_DISTANCE;
-      break;
-    case "bottom":
-      y += OFFSET_DISTANCE;
-      break;
-    case "left":
-      x -= OFFSET_DISTANCE;
-      break;
-    case "right":
-      x += OFFSET_DISTANCE;
-      break;
-  }
-  return [x, y, placement];
-};
-
-const applyFlip = (
-  x: number,
-  y: number,
-  placement: PlacementType,
-  popoverRect: DOMRect,
-  childrenRect: DOMRect,
-  boundary: BoundaryType
-): [number, number, PlacementType] => {
-  const currentCoords = getCoordsFromRect(x, y, popoverRect);
-
-  let newX = x;
-  let newY = y;
-  let newPlacement = placement;
-
-  if (placement === "top" && currentCoords.top < boundary.top) {
-    newPlacement = "bottom";
-    ({ x: newX, y: newY } = getInitialCoordinates(
-      childrenRect,
-      popoverRect,
-      newPlacement
-    ));
-  } else if (placement === "bottom" && currentCoords.bottom > boundary.bottom) {
-    newPlacement = "top";
-    ({ x: newX, y: newY } = getInitialCoordinates(
-      childrenRect,
-      popoverRect,
-      newPlacement
-    ));
-  } else if (placement === "left" && currentCoords.left < boundary.left) {
-    newPlacement = "right";
-    ({ x: newX, y: newY } = getInitialCoordinates(
-      childrenRect,
-      popoverRect,
-      newPlacement
-    ));
-  } else if (placement === "right" && currentCoords.right > boundary.right) {
-    newPlacement = "left";
-    ({ x: newX, y: newY } = getInitialCoordinates(
-      childrenRect,
-      popoverRect,
-      newPlacement
-    ));
-  }
-
-  if (newPlacement !== placement) {
-    [newX, newY] = applyOffset(newX, newY, newPlacement);
-  }
-
-  return [newX, newY, newPlacement];
-};
-
-const applyShift = (
-  x: number,
-  y: number,
-  popoverRect: DOMRect,
-  boundary: BoundaryType
-): [number, number] => {
-  let shiftedX = x;
-  let shiftedY = y;
-
-  const leftOverflow = shiftedX - boundary.left;
-  const rightOverflow = shiftedX + popoverRect.width - boundary.right;
-
-  if (leftOverflow < 0) {
-    shiftedX -= leftOverflow;
-  } else if (rightOverflow > 0) {
-    shiftedX -= rightOverflow;
-  }
-
-  const topOverflow = shiftedY - boundary.top;
-  const bottomOverflow = shiftedY + popoverRect.height - boundary.bottom;
-
-  if (topOverflow < 0) {
-    shiftedY -= topOverflow;
-  } else if (bottomOverflow > 0) {
-    shiftedY -= bottomOverflow;
-  }
-
-  return [shiftedX, shiftedY];
-};
-
+import { useBoundary } from "../hooks/useBoundary";
+import { ContainerLayers, PlacementType } from "../types/magnifier-types";
+import {
+  applyFlip,
+  applyOffset,
+  applyShift,
+  getInitialCoordinates,
+} from "@/utils/popover-utils";
 interface IHoverImageMagnifier {
   src: string;
   alt?: string;
@@ -202,7 +53,7 @@ function HoverImageMagnifier({
     naturalWidth: number;
     naturalHeight: number;
   } | null>(null);
-  const timeoutRef = useRef<number | null>(null);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const childrenRef = useRef<HTMLImageElement>(null);
   const popoverRef = useRef<HTMLDivElement>(null);
 
